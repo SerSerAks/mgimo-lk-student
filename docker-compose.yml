@@ -1,0 +1,15 @@
+# Локальная база для разработки кабинета студента.
+name: lkstudent
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: lkstudent
+      POSTGRES_USER: lkstudent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+    ports:
+      - "5434:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+volumes:
+  dbdata:
