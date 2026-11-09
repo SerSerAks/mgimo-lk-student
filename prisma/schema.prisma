@@ -250,6 +250,7 @@ model Enrollment {
   supervisor       Person?          @relation("Supervisor", fields: [supervisorId], references: [id])
 
   grades             Grade[]
+  socialPoints       SocialPoint[]
   requests           Request[]
   thesis             Thesis?
   planItems          PlanItem[]
@@ -661,4 +662,20 @@ model Homework {
   updatedAt    DateTime @updatedAt
 
   @@unique([personId, lessonId])
+}
+
+/// Социальный рейтинг МГИМО — баллы за внеучебную активность, отдельно от учебных оценок.
+/// ДОПУЩЕНИЕ: официального описания в открытых источниках не нашли; структура (категории, оценка преподавателя) — со слов команды.
+model SocialPoint {
+  id           Int        @id @default(autoincrement())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  semester     Int
+  category     String // Волонтёрство, Студенческие организации, Спорт, Мероприятия и конференции, Оценка преподавателя
+  title        String // за что
+  points       Int
+  awardedBy    String? // кто начислил: «Студсовет», «Кафедра…», ФИО вымышленные
+  date         DateTime   @db.Date
+
+  @@index([enrollmentId])
 }

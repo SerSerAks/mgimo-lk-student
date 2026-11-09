@@ -14,6 +14,7 @@ import { toMark } from "../src/config/grading";
 import { applyDemoChanges } from "./demo-changes";
 import { seedSupervision } from "./supervision-seed";
 import { seedAccounts } from "./accounts-seed";
+import { seedStudy } from "./study-seed";
 
 const db = new PrismaClient();
 const DAY = 86400000;
@@ -320,6 +321,7 @@ async function main() {
   // выбор научного руководителя: группа 3УП-01, профили руководителей, student3
   credentials.push(...(await seedSupervision(db)));
   credentials.push(...(await seedAccounts(db)));
+  await seedStudy(db); // история оценок и социальный рейтинг
 
   // демо-изменения расписания (после создания студентов — нужны их подгруппы)
   await applyDemoChanges(db, today);

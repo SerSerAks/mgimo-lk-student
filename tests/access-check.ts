@@ -99,6 +99,18 @@ async function userOf(login: string) {
     }
   }
 
+  // --- учёба: средний балл и прогноз красного диплома ---
+  const { averageMark, honorsForecast } = await import("../src/lib/study");
+  const g = (mark: string, isDebt = false) => ({ mark, isDebt, controlType: "EXAM" as const });
+  check("средний балл: 5, 4, 5 → 4,67; зачёты не считаются", averageMark([g("5"), g("4"), g("5"), { mark: "зачтено", isDebt: false, controlType: "CREDIT" }]) === 4.67);
+  check("средний балл без оценок — нет", averageMark([]) === null);
+  check("красный диплом: 6 из 8 пятёрок (75%) — выходит", honorsForecast([..."55555544"].map((m) => g(m))).status === "on_track");
+  check("красный диплом: тройка мешает даже при 80% пятёрок", honorsForecast([..."55553"].map((m) => g(m))).status === "off");
+  check("красный диплом: долг мешает", honorsForecast([g("5"), g("5"), g("5"), g("2", true)]).status === "off");
+  const near = honorsForecast([..."5544"].map((m) => g(m)));
+  check("красный диплом: 50% — нужно ещё 4 пятёрки подряд", near.needFives === 4 && near.status === "off");
+  check("красный диплом: 2 из 3 — «почти», нужна 1 пятёрка", honorsForecast([..."554"].map((m) => g(m))).needFives === 1 && honorsForecast([..."554"].map((m) => g(m))).status === "close");
+
   // --- подсветка пары: 9:00 — первая, 10:22 (перерыв) — вторая, после последней — ничего ---
   const { pickHighlight, mapLink } = await import("../src/lib/schedule-utils");
   const day = [{ time: "09:00", end: "10:20" }, { time: "10:35", end: "11:55" }, { time: "12:10", end: "13:30", off: true }, { time: "14:30", end: "15:50" }];
