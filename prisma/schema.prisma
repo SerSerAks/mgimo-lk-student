@@ -200,6 +200,7 @@ model Person {
   staffRoom           String?
   staffHours          String?
   workPhone           String? // вымышленный
+  homework            Homework[]
 }
 
 model Session {
@@ -285,6 +286,7 @@ model Lesson {
   prevAuditorium String?
   changedAt      DateTime?
   source         String       @default("RUZ") // RUZ — импорт открытых данных; SEED — вымышленное изменение
+  homework       Homework[]
 
   @@index([groupId, date])
 }
@@ -642,4 +644,21 @@ model SupervisorIntake {
   openedAt     DateTime            @default(now())
 
   @@id([supervisorId, campaignId])
+}
+
+/// Домашнее задание студента к конкретной паре. Записывается в окне пары «к следующей паре» и
+/// показывается на ближайшей следующей паре того же предмета. Хранится в учётке — видно с любого устройства.
+model Homework {
+  id           String   @id @default(cuid())
+  personId     String
+  person       Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  lessonId     Int // пара, К КОТОРОЙ задано
+  lesson       Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  fromLessonId Int? // на какой паре записано
+  text         String
+  done         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([personId, lessonId])
 }

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { requireStudent } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { dayItems, hasChanges, lessonsFor, toMin } from "@/lib/schedule";
-import { addDays, fmtDay, fmtShort, nowHHMM, todayMsk, weekParity } from "@/lib/time";
+import { dayItems, hasChanges, lessonsFor, nextLessons } from "@/lib/schedule";
+import { addDays, fmtDay, fmtShort, todayMsk, weekParity } from "@/lib/time";
 import { DaySchedule } from "@/components/day-schedule";
 import { EventsList } from "@/components/events-list";
 import { requestTypeLabel } from "@/lib/requests";
@@ -12,9 +12,8 @@ export default async function TodayPage() {
   const user = await requireStudent();
   const today = todayMsk();
   const tomorrow = addDays(today, 1);
-  const nowMin = toMin(nowHHMM());
   const [lessons, ahead, ready, unread] = await Promise.all([
-    lessonsFor(user.enrollment, today, addDays(today, 2)),
+    lessonsFor(user.enrollment, today, addDays(today, 2), user.id),
     lessonsFor(user.enrollment, addDays(today, 1), addDays(today, 14)),
     db.request.findMany({ where: { enrollmentId: user.enrollment.id, status: "READY" }, orderBy: { updatedAt: "desc" } }),
     db.notification.findMany({ where: { personId: user.id, readAt: null }, orderBy: { createdAt: "desc" }, take: 3 }),
@@ -25,6 +24,8 @@ export default async function TodayPage() {
   const toChoose = camps.filter((c) => !accepted.has(c.id) && !(c.workType === "THESIS" && user.enrollment.supervisorId) && c.chooseBy >= today);
   const todayItems = dayItems(lessons, today);
   const tomorrowItems = dayItems(lessons, tomorrow);
+  // следующая пара того же предмета — к ней привязывается ДЗ из окна пары
+  const next = Object.fromEntries(await nextLessons(user.enrollment, lessons, user.id));
   const nextDay = todayItems.length === 0 ? ahead.find((l) => l.change !== "CANCELLED") : undefined;
 
   return (
@@ -61,7 +62,7 @@ export default async function TodayPage() {
           <h2 id="today-h" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Расписание на сегодня</h2>
           <Link href="/schedule" className="text-sm font-medium text-brand-blue">Вся неделя →</Link>
         </div>
-        {todayItems.length ? <DaySchedule items={todayItems} nowMin={nowMin} /> : (
+        {todayItems.length ? <DaySchedule items={todayItems} live next={next} /> : (
           <p className="rounded-lg border p-4 text-sm">
             Сегодня пар нет.{nextDay && <> Ближайшая — {fmtShort(nextDay.date)}, {nextDay.start}: <b>{nextDay.discipline}</b>.</>}
           </p>
@@ -71,7 +72,7 @@ export default async function TodayPage() {
       {hasChanges(tomorrowItems) && (
         <section aria-labelledby="tomorrow-h">
           <h2 id="tomorrow-h" className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-red">Завтра есть изменения · {fmtShort(tomorrow)}</h2>
-          <DaySchedule items={tomorrowItems} />
+          <DaySchedule items={tomorrowItems} next={next} />
         </section>
       )}
 

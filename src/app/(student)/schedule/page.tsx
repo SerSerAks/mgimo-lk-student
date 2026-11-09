@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireStudent } from "@/lib/auth";
-import { dayItems, hasChanges, lessonsFor, toMin } from "@/lib/schedule";
-import { addDays, fmtDay, nowHHMM, todayMsk, weekParity, weekStart } from "@/lib/time";
+import { dayItems, hasChanges, lessonsFor, nextLessons } from "@/lib/schedule";
+import { addDays, fmtDay, todayMsk, weekParity, weekStart } from "@/lib/time";
 import { DaySchedule } from "@/components/day-schedule";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -23,7 +23,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   if (day.getUTCDay() === 0) day = addDays(day, 1);
   const week = weekStart(day);
   const days = Array.from({ length: 6 }, (_, i) => addDays(week, i));
-  const lessons = await lessonsFor(user.enrollment, week, addDays(week, 7));
+  const lessons = await lessonsFor(user.enrollment, week, addDays(week, 7), user.id);
+  // следующая пара того же предмета — к ней привязывается ДЗ из окна пары
+  const next = Object.fromEntries(await nextLessons(user.enrollment, lessons, user.id));
   const p = weekParity(week);
   const weekView = sp.view === "week";
   const isToday = (d: Date) => d.getTime() === today.getTime();
@@ -70,12 +72,12 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       {weekView ? days.map((d) => (
         <section key={iso(d)} id={`d-${iso(d)}`} className="scroll-mt-20">
           <h2 className={`mb-2 font-semibold first-letter:uppercase ${isToday(d) ? "text-brand-red" : "text-navy"}`}>{fmtDay(d)}{isToday(d) && " · сегодня"}</h2>
-          <DaySchedule items={dayItems(lessons, d)} nowMin={isToday(d) ? toMin(nowHHMM()) : undefined} />
+          <DaySchedule items={dayItems(lessons, d)} live={isToday(d)} next={next} />
         </section>
       )) : (
         <section>
           <h2 className={`mb-2 font-semibold first-letter:uppercase ${isToday(day) ? "text-brand-red" : "text-navy"}`}>{fmtDay(day)}{isToday(day) && " · сегодня"}</h2>
-          <DaySchedule items={dayItems(lessons, day)} nowMin={isToday(day) ? toMin(nowHHMM()) : undefined} />
+          <DaySchedule items={dayItems(lessons, day)} live={isToday(day)} next={next} />
           <div className="mt-3 flex justify-between text-sm font-semibold text-brand-blue">
             {day.getUTCDay() !== 1 ? <Link href={link(addDays(day, -1))}>← {WD[(day.getUTCDay() + 5) % 7]}</Link> : <Link href={link(addDays(day, -2))}>← Сб</Link>}
             {day.getUTCDay() !== 6 ? <Link href={link(addDays(day, 1))}>{WD[day.getUTCDay() % 7]} →</Link> : <Link href={link(addDays(day, 2))}>Пн →</Link>}

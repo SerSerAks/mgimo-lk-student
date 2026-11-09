@@ -122,7 +122,7 @@ async function main() {
       const disc = l.discipline!;
       if (!teacherByDiscipline.has(disc)) {
         const n = fakeName();
-        const t = await db.teacher.create({ data: { name: `${n.lastName} ${n.firstName[0]}. ${n.middleName[0]}.`, title: pick(TITLES) } });
+        const t = await db.teacher.create({ data: { name: `${n.lastName} ${n.firstName} ${n.middleName}`, title: pick(TITLES) } }); // полное ФИО (вымышленное); в строке расписания — инициалы
         teacherByDiscipline.set(disc, t.id);
       }
       rows.push({

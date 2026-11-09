@@ -79,6 +79,39 @@ async function userOf(login: string) {
   await db.request.deleteMany({ where: { id: { in: [mine.id, foreign.id] } } });
   check("шаги демо: 1 и 2 минуты", DEMO_STEP_MS.toWork === 60_000 && DEMO_STEP_MS.toReady === 120_000);
 
+  // --- домашнее задание: ложится на следующую пару того же предмета, видно только своему студенту ---
+  const { lessonsFor, nextLessons } = await import("../src/lib/schedule");
+  const enr1 = await db.enrollment.findFirstOrThrow({ where: { person: { login: "student1" }, status: "ACTIVE" } });
+  const wk = await lessonsFor(enr1, new Date("2026-11-09T00:00:00Z"), new Date("2026-11-16T00:00:00Z"), s1id);
+  const src = wk.find((l) => l.change !== "CANCELLED");
+  if (src) {
+    const nx = (await nextLessons(enr1, [src], s1id)).get(src.id);
+    check("у пары есть следующая пара того же предмета, позже по времени", !!nx && `${nx.date.toISOString()} ${nx.start}` > `${src.date.toISOString()} ${src.start}`);
+    if (nx) {
+      const tgt = await db.lesson.findUniqueOrThrow({ where: { id: nx.id } });
+      check("следующая пара — тот же предмет и подгруппа", tgt.discipline === src.discipline && tgt.subgroup === src.subgroup);
+      const hw = await db.homework.create({ data: { personId: s1id, lessonId: nx.id, fromLessonId: src.id, text: "тест: глава 3" } });
+      const seen = (await lessonsFor(enr1, tgt.date, new Date(tgt.date.getTime() + 86400000), s1id)).find((l) => l.id === nx.id);
+      check("ДЗ видно на следующей паре у автора", seen?.homework[0]?.text === "тест: глава 3");
+      const other = (await lessonsFor(enr1, tgt.date, new Date(tgt.date.getTime() + 86400000), "чужой-студент")).find((l) => l.id === nx.id);
+      check("чужое ДЗ не видно другому студенту той же группы", other?.homework.length === 0);
+      await db.homework.delete({ where: { id: hw.id } });
+    }
+  }
+
+  // --- подсветка пары: 9:00 — первая, 10:22 (перерыв) — вторая, после последней — ничего ---
+  const { pickHighlight, mapLink } = await import("../src/lib/schedule-utils");
+  const day = [{ time: "09:00", end: "10:20" }, { time: "10:35", end: "11:55" }, { time: "12:10", end: "13:30", off: true }, { time: "14:30", end: "15:50" }];
+  const hl = (hhmm: string) => { const h = pickHighlight(day, Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3))); return h.current ? `идёт ${h.current.time}` : h.upcoming ? `следующая ${h.upcoming.time}` : "нет"; };
+  check("в 9:00 подсвечена первая пара", hl("09:00") === "идёт 09:00");
+  check("в 10:22 (перерыв) подсвечена вторая пара", hl("10:22") === "следующая 10:35");
+  check("в 8:10 подсвечена первая как следующая", hl("08:10") === "следующая 09:00");
+  check("отменённая пара не подсвечивается — в 12:20 следующая 14:30", hl("12:20") === "следующая 14:30");
+  check("после последней пары подсветки нет", hl("18:38") === "нет");
+  // --- ссылка на карту МГИМО ---
+  check("ссылка на карту: номер аудитории и зал", mapLink("507", "Новый корпус") === "https://mgimo.ru/territory/?q=507" && mapLink("зал 2", "Корпус МО")!.endsWith("q=%D0%B7%D0%B0%D0%BB%202"));
+  check("для дистанта и «Б/а» ссылки нет", mapLink("Б/а", "Виртуальное") === null && mapLink("3153", "Виртуальное") === null);
+
   console.log(failed ? `\nПровалено проверок: ${failed}` : "\nВсе проверки доступа пройдены");
   await db.$disconnect();
   process.exit(failed ? 1 : 0);
