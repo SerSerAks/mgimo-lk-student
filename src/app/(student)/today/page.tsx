@@ -12,11 +12,10 @@ export default async function TodayPage() {
   const user = await requireStudent();
   const today = todayMsk();
   const tomorrow = addDays(today, 1);
-  const [lessons, ahead, ready, unread] = await Promise.all([
+  const [lessons, ahead, ready] = await Promise.all([
     lessonsFor(user.enrollment, today, addDays(today, 2), user.id),
     lessonsFor(user.enrollment, addDays(today, 1), addDays(today, 14)),
     db.request.findMany({ where: { enrollmentId: user.enrollment.id, status: "READY" }, orderBy: { updatedAt: "desc" } }),
-    db.notification.findMany({ where: { personId: user.id, readAt: null }, orderBy: { createdAt: "desc" }, take: 3 }),
   ]);
   // кампании, где руководитель ещё не выбран (нет принятой заявки; для ВКР — нет закреплённого руководителя)
   const camps = await campaignsFor(db, user.enrollment);
@@ -75,21 +74,6 @@ export default async function TodayPage() {
           <DaySchedule items={tomorrowItems} next={next} />
         </section>
       )}
-
-      <section aria-labelledby="news">
-        <h2 id="news" className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Новое для вас</h2>
-        {unread.length ? (
-          <ul className="space-y-2">
-            {unread.map((n) => (
-              <li key={n.id} className="rounded-lg border p-4">
-                <b className="text-navy">{n.title}</b>
-                <p className="text-sm">{n.body}</p>
-                <a href={`/notifications/${n.id}`} className="text-sm font-medium text-brand-blue">{n.link ? "Открыть →" : "Прочитано ✓"}</a>
-              </li>
-            ))}
-          </ul>
-        ) : <p className="text-sm text-muted-foreground">Вы всё прочитали.</p>}
-      </section>
 
       {/* на телефоне мероприятия здесь, на компьютере — в левой колонке */}
       <div className="md:hidden"><EventsList limit={3} /></div>
